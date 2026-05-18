@@ -3,20 +3,19 @@
 
 char M[200][4];
 char IR[4];
-int IC;
-char buffer[40];
+
+int IC = 0;
 
 FILE *fin, *fout;
 
-/* LOAD PROGRAM INTO MEMORY */
+/* LOAD FUNCTION */
 
 void LOAD()
 {
     char line[40];
+
     int m = 0;
     int i;
-
-    fin = fopen("input.txt","r");
 
     while(fgets(line,40,fin))
     {
@@ -37,7 +36,7 @@ void LOAD()
 
         else
         {
-            for(i=0; i<strlen(line); i++)
+            for(i=0; line[i]!='\0'; i++)
             {
                 if(line[i]=='\n')
                     continue;
@@ -58,10 +57,13 @@ void LOAD()
 
 void READ()
 {
+    char buffer[40];
+
     fgets(buffer,40,fin);
 
     int loc =
-    (IR[2]-'0')*10 + (IR[3]-'0');
+    (IR[2]-'0')*10 +
+    (IR[3]-'0');
 
     int k = 0;
 
@@ -69,7 +71,7 @@ void READ()
     {
         for(int j=0; j<4; j++)
         {
-            if(buffer[k]=='\n')
+            if(buffer[k]=='\n' || buffer[k]=='\0')
                 return;
 
             M[i][j] = buffer[k];
@@ -83,35 +85,37 @@ void READ()
 void WRITE()
 {
     int loc =
-    (IR[2]-'0')*10 + (IR[3]-'0');
-
-    printf("\nOUTPUT:\n");
+    (IR[2]-'0')*10 +
+    (IR[3]-'0');
 
     for(int i=loc; i<loc+10; i++)
     {
         for(int j=0; j<4; j++)
         {
-            printf("%c",M[i][j]);
+            if(M[i][j]=='\0')
+                return;
+
+            fprintf(fout,"%c",M[i][j]);
         }
     }
 
-    printf("\n");
+    fprintf(fout,"\n");
 }
 
 /* TERMINATE */
 
 void TERMINATE()
 {
-    printf("\nPROGRAM EXECUTED SUCCESSFULLY\n");
+    fprintf(fout,"\nPROGRAM TERMINATED SUCCESSFULLY\n");
 }
 
-/* EXECUTE USER PROGRAM */
+/* EXECUTION */
 
 void EXECUTEUSERPROGRAM()
 {
     while(1)
     {
-        // FETCH INSTRUCTION
+        /* FETCH */
 
         for(int i=0;i<4;i++)
         {
@@ -120,7 +124,7 @@ void EXECUTEUSERPROGRAM()
 
         IC++;
 
-        // DECODE + EXECUTE
+        /* EXECUTE */
 
         if(IR[0]=='G' && IR[1]=='D')
         {
@@ -144,13 +148,24 @@ void EXECUTEUSERPROGRAM()
 
 int main()
 {
-    IC = 0;
+    fin = fopen("input.txt","r");
+
+    if(fin == NULL)
+    {
+        printf("Input file not found");
+        return 0;
+    }
+
+    fout = fopen("output.txt","w");
 
     LOAD();
 
     EXECUTEUSERPROGRAM();
 
     fclose(fin);
+    fclose(fout);
+
+    printf("Execution Completed");
 
     return 0;
 }

@@ -2,83 +2,46 @@
 #include<stdlib.h>
 #include<string.h>
 
-char M[400][4];
-
+char M[300][4];
 char IR[4];
-char R[4];
 
-int IC;
-int PTR;
-
-int used[40];
-
-FILE *fin;
+int IC = 0;
 
 int pageTable[10];
+int used[30];
+
+FILE *fin, *fout;
 
 /* ALLOCATE FRAME */
 
 int ALLOCATE()
 {
-    int frame;
-
-    while(1)
+    for(int i=0;i<30;i++)
     {
-        frame = rand()%40;
-
-        if(used[frame]==0)
+        if(used[i] == 0)
         {
-            used[frame]=1;
-
-            return frame;
+            used[i] = 1;
+            return i;
         }
     }
+
+    return -1;
 }
 
 /* ADDRESS MAP */
 
 int ADDRESSMAP(int VA)
 {
-    int page;
-    int offset;
-    int frame;
+    int page = VA / 10;
+    int offset = VA % 10;
 
-    page = VA/10;
-
-    offset = VA%10;
-
-    frame = pageTable[page];
-
-    // PAGE FAULT
-
-    if(frame == -1)
-    {
+    if(pageTable[page] == -1)
         return -1;
-    }
 
-    return frame*10 + offset;
+    return pageTable[page] * 10 + offset;
 }
 
-/* HANDLE VALID PAGE FAULT */
-
-void VALIDPAGEFAULT(int VA)
-{
-    int page;
-    int frame;
-
-    page = VA/10;
-
-    frame = ALLOCATE();
-
-    pageTable[page] = frame;
-
-    printf("\nVALID PAGE FAULT OCCURRED");
-
-    printf("\nPAGE %d ALLOCATED TO FRAME %d\n",
-           page,frame);
-}
-
-/* LOAD */
+/* LOAD FUNCTION */
 
 void LOAD()
 {
@@ -86,18 +49,14 @@ void LOAD()
 
     int frame;
     int loc;
-    int i,k;
-
-    fin = fopen("input.txt","r");
+    int k;
 
     while(fgets(line,40,fin))
     {
         if(strncmp(line,"$AMJ",4)==0)
         {
-            PTR = ALLOCATE()*10;
-
-            for(i=0;i<10;i++)
-                pageTable[i]=-1;
+            for(int i=0;i<10;i++)
+                pageTable[i] = -1;
         }
 
         else if(strncmp(line,"$DTA",4)==0)
@@ -114,80 +73,60 @@ void LOAD()
         {
             frame = ALLOCATE();
 
-            pageTable[0]=frame;
+            /* Store only program page */
 
-            loc = frame*10;
+            pageTable[0] = frame;
 
-            k=0;
+            loc = frame * 10;
 
-            for(i=0;i<strlen(line);i++)
+            k = 0;
+
+            for(int i=0; line[i]!='\0'; i++)
             {
                 if(line[i]=='\n')
                     continue;
 
-                M[loc][k]=line[i];
+                M[loc][k] = line[i];
 
                 k++;
 
-                if(k==4)
+                if(k == 4)
                 {
+                    k = 0;
                     loc++;
-                    k=0;
                 }
             }
         }
     }
 }
 
-/* READ */
-
-void READ(int RA)
-{
-    char buffer[40];
-
-    fgets(buffer,40,fin);
-
-    int k=0;
-
-    for(int i=RA;i<RA+10;i++)
-    {
-        for(int j=0;j<4;j++)
-        {
-            if(buffer[k]=='\n')
-                return;
-
-            M[i][j]=buffer[k];
-
-            k++;
-        }
-    }
-}
-
-/* WRITE */
+/* WRITE FUNCTION */
 
 void WRITE(int RA)
 {
-    printf("\nOUTPUT:\n");
-
     for(int i=RA;i<RA+10;i++)
     {
         for(int j=0;j<4;j++)
         {
-            printf("%c",M[i][j]);
+            if(M[i][j]=='\0')
+                return;
+
+            fprintf(fout,"%c",M[i][j]);
         }
     }
 
-    printf("\n");
+    fprintf(fout,"\n");
 }
 
 /* TERMINATE */
 
 void TERMINATE()
 {
-    printf("\nPROGRAM TERMINATED\n");
+    fprintf(fout,
+    "\nPROGRAM TERMINATED\n");
 }
 
-/* EXECUTION */
+/* EXECUTION FUNCTION */
 
 void EXECUTEUSERPROGRAM()
 {
@@ -195,20 +134,20 @@ void EXECUTEUSERPROGRAM()
 
     while(1)
     {
-        // FETCH
+        /* FETCH */
 
         RA = ADDRESSMAP(IC);
 
         for(int i=0;i<4;i++)
         {
-            IR[i]=M[RA][i];
+            IR[i] = M[RA][i];
         }
 
         IC++;
 
-        // GD
+        /* PD */
 
-        if(IR[0]=='G' && IR[1]=='D')
+        if(IR[0]=='P' && IR[1]=='D')
         {
             VA =
             (IR[2]-'0')*10 +
@@ -216,39 +155,26 @@ void EXECUTEUSERPROGRAM()
 
             RA = ADDRESSMAP(VA);
 
-            // PAGE FAULT
+            /* INVALID PAGE FAULT */
 
-            if(RA==-1)
+            if(RA == -1)
             {
-                 printf("\nINVALID PAGE FAULT\n");
+                fprintf(fout,
+                "\nINVALID PAGE FAULT\n");
 
                 TERMINATE();
 
                 break;
             }
 
-            READ(RA);
-        }
-
-        // PD
-
-        else if(IR[0]=='P' && IR[1]=='D')
-        {
-            VA =
-            (IR[2]-'0')*10 +
-            (IR[3]-'0');
-
-            RA = ADDRESSMAP(VA);
-
             WRITE(RA);
         }
 
-        // HALT
+        /* HALT */
 
         else if(IR[0]=='H')
         {
             TERMINATE();
-
             break;
         }
     }
@@ -258,18 +184,27 @@ void EXECUTEUSERPROGRAM()
 
 int main()
 {
-    int i;
+    for(int i=0;i<30;i++)
+        used[i] = 0;
 
-    for(i=0;i<40;i++)
-        used[i]=0;
+    fin = fopen("input.txt","r");
 
-    IC=0;
+    if(fin == NULL)
+    {
+        printf("Input file not found");
+        return 0;
+    }
+
+    fout = fopen("output.txt","w");
 
     LOAD();
 
     EXECUTEUSERPROGRAM();
 
     fclose(fin);
+    fclose(fout);
+
+    printf("Execution Completed\n");
 
     return 0;
 }
